@@ -287,6 +287,7 @@
 .studio-canvas-toolbar-spacer { flex: 1 1 8px; }
 
 .studio-canvas-scroll {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -485,32 +486,12 @@
   background: var(--chrome-input-bg);
   overflow: auto;
 }
-.studio-code-gutter {
-  flex: 0 0 40px;
-  margin: 0;
-  padding: var(--space-4) var(--space-3) var(--space-4) 0;
-  text-align: right;
-  font: 400 11.5px/1.7 var(--font-mono);
-  color: var(--color-neutral-800);
-  background: var(--chrome-gutter-bg);
-  user-select: none;
+.studio-code-editor {
+  display: block;
 }
-.studio-code-source {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  padding: var(--space-4) 14px;
-  font: 400 11.5px/1.7 var(--font-mono);
-  color: var(--color-neutral-300);
-  white-space: pre;
+.studio-code-editor .cm-editor {
+  height: 100%;
 }
-.studio-code-tag { color: var(--color-accent-400); }
-.studio-code-attr { color: var(--color-accent-2-500); }
-.studio-code-string { color: #9fd0c0; }
-.studio-code-comment { color: var(--color-neutral-700); }
-.studio-code-prop { color: var(--color-accent-2-500); }
-.studio-code-value { color: var(--color-accent-300); }
-
 .studio-code-footer {
   flex: 0 0 auto;
   display: flex;

@@ -10,9 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/view": "^6.43.12",
     "@fontsource/inter": "^5.3.0",
+    "@uiw/react-codemirror": "^4.25.11",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "^0.24.6"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

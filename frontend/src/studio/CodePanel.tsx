@@ -1,4 +1,10 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import CodeMirror, { EditorView, type ReactCodeMirrorRef } from '@uiw/react-codemirror'
+import { html } from '@codemirror/lang-html'
+import { css } from '@codemirror/lang-css'
+import { useStudio } from './context'
+import { NODES, type StudioNodeId } from './data'
+import { DEMO_HTML, findNodeInCss, findNodeInHtml, findRangeForNode } from './sourceSync'
 
 type Tab = 'html' | 'css' | 'js'
 
@@ -8,120 +14,96 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'js', label: 'JS' },
 ]
 
-const SOURCES: Record<Tab, { lines: number; node: React.ReactNode }> = {
-  html: {
-    lines: 16,
-    node: (
-      <>
-        {'<'}
-        <span className="studio-code-tag">header</span> <span className="studio-code-attr">class</span>=
-        <span className="studio-code-string">"bar"</span>
-        {'>\n  <'}
-        <span className="studio-code-tag">span</span> <span className="studio-code-attr">class</span>=
-        <span className="studio-code-string">"logo"</span>
-        {'>MERIDIAN</'}
-        <span className="studio-code-tag">span</span>
-        {'>\n  <'}
-        <span className="studio-code-tag">nav</span>
-        {'>\n    <'}
-        <span className="studio-code-tag">a</span> <span className="studio-code-attr">href</span>=
-        <span className="studio-code-string">"#"</span>
-        {'>Work</'}
-        <span className="studio-code-tag">a</span>
-        {'>\n    <'}
-        <span className="studio-code-tag">a</span> <span className="studio-code-attr">href</span>=
-        <span className="studio-code-string">"#"</span>
-        {'>Studio</'}
-        <span className="studio-code-tag">a</span>
-        {'>\n    <'}
-        <span className="studio-code-tag">a</span> <span className="studio-code-attr">href</span>=
-        <span className="studio-code-string">"#"</span>
-        {'>Contact</'}
-        <span className="studio-code-tag">a</span>
-        {'>\n  </'}
-        <span className="studio-code-tag">nav</span>
-        {'>\n</'}
-        <span className="studio-code-tag">header</span>
-        {'>\n\n<'}
-        <span className="studio-code-tag">main</span>
-        {'>\n  <'}
-        <span className="studio-code-tag">h1</span>
-        {'>Design in the browser,\n      not around it.</'}
-        <span className="studio-code-tag">h1</span>
-        {'>\n  <'}
-        <span className="studio-code-tag">p</span> <span className="studio-code-attr">class</span>=
-        <span className="studio-code-string">"lede"</span>
-        {'>Select any element…</'}
-        <span className="studio-code-tag">p</span>
-        {'>\n</'}
-        <span className="studio-code-tag">main</span>
-        {'>'}
-      </>
-    ),
-  },
-  css: {
-    lines: 15,
-    node: (
-      <>
-        <span className="studio-code-comment">{'/* tokens */'}</span>
-        {'\n'}
-        <span className="studio-code-tag">:root</span>
-        {' {\n  '}
-        <span className="studio-code-prop">--ink</span>
-        {': '}
-        <span className="studio-code-string">#16181d</span>
-        {';\n  '}
-        <span className="studio-code-prop">--paper</span>
-        {': '}
-        <span className="studio-code-string">#f4f3ef</span>
-        {';\n  '}
-        <span className="studio-code-prop">--accent</span>
-        {': '}
-        <span className="studio-code-string">#3b5bdb</span>
-        {';\n}\n\n'}
-        <span className="studio-code-tag">.cta</span>
-        {' {\n  '}
-        <span className="studio-code-prop">background</span>
-        {': '}
-        <span className="studio-code-tag">var</span>
-        {'('}
-        <span className="studio-code-prop">--accent</span>
-        {');\n  '}
-        <span className="studio-code-prop">color</span>
-        {': '}
-        <span className="studio-code-string">#fff</span>
-        {';\n  '}
-        <span className="studio-code-prop">border-radius</span>
-        {': '}
-        <span className="studio-code-value">6px</span>
-        {';\n  '}
-        <span className="studio-code-prop">transition</span>
-        {': transform '}
-        <span className="studio-code-value">120ms</span>
-        {' ease;\n}'}
-      </>
-    ),
-  },
-  js: {
-    lines: 8,
-    node: (
-      <>
-        <span className="studio-code-comment">{'// canvas behaviour'}</span>
-        {'\nconst cta = document.querySelector('}
-        <span className="studio-code-string">'.cta'</span>
-        {');\n\ncta.addEventListener('}
-        <span className="studio-code-string">'click'</span>
-        {', () => {\n  cta.animate([...], { duration: '}
-        <span className="studio-code-value">180</span>
-        {' });\n});'}
-      </>
-    ),
-  },
+const JS_SOURCE = `// canvas behaviour
+const cta = document.querySelector('.cta');
+
+cta.addEventListener('click', () => {
+  cta.animate([...], { duration: 180 });
+});`
+
+function buildCss(styles: ReturnType<typeof useStudio>['styles']): string {
+  return NODES.filter((n) => n.cls)
+    .map((n) => {
+      const s = styles[n.id]
+      const decls = Object.entries(s)
+        .map(([k, v]) => {
+          const prop = k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)
+          const unit = k === 'fontSize' || k === 'borderRadius' ? 'px' : ''
+          return `  ${prop}: ${v}${unit};`
+        })
+        .join('\n')
+      return `${n.cls} {\n${decls}\n}`
+    })
+    .join('\n\n')
 }
+
+const darkTheme = EditorView.theme(
+  {
+    '&': { backgroundColor: 'var(--chrome-input-bg)', height: '100%', fontSize: '11.5px' },
+    '.cm-content': { fontFamily: 'var(--font-mono)', caretColor: 'var(--color-accent)' },
+    '.cm-gutters': { backgroundColor: 'var(--chrome-gutter-bg)', color: 'var(--color-neutral-800)', border: 'none' },
+    '.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--color-text) 5%, transparent)' },
+    '.cm-activeLineGutter': { backgroundColor: 'transparent' },
+    '&.cm-focused': { outline: 'none' },
+  },
+  { dark: true },
+)
 
 export function CodePanel() {
   const [tab, setTab] = useState<Tab>('html')
-  const source = SOURCES[tab]
+  const { selectedId, selectNode, styles } = useStudio()
+  const htmlRef = useRef<ReactCodeMirrorRef>(null)
+  const editorDrivenRef = useRef(false)
+  const cssSource = buildCss(styles)
+
+  // Cursor moved in the HTML editor -> best-effort select the node it's in.
+  const handleHtmlUpdate = useCallback(
+    (viewUpdate: import('@codemirror/view').ViewUpdate) => {
+      if (!viewUpdate.selectionSet) return
+      const offset = viewUpdate.state.selection.main.head
+      const doc = viewUpdate.state.doc.toString()
+      findNodeInHtml(doc, offset).then((found) => {
+        if (found && found !== selectedId) {
+          editorDrivenRef.current = true
+          selectNode(found)
+        }
+      })
+    },
+    [selectNode, selectedId],
+  )
+
+  const handleCssUpdate = useCallback(
+    (viewUpdate: import('@codemirror/view').ViewUpdate) => {
+      if (!viewUpdate.selectionSet) return
+      const offset = viewUpdate.state.selection.main.head
+      const doc = viewUpdate.state.doc.toString()
+      findNodeInCss(doc, offset).then((found) => {
+        if (found && found !== selectedId) selectNode(found)
+      })
+    },
+    [selectNode, selectedId],
+  )
+
+  // Selection changed elsewhere (tree/canvas) -> move the HTML cursor there.
+  useEffect(() => {
+    if (editorDrivenRef.current) {
+      editorDrivenRef.current = false
+      return
+    }
+    const view = htmlRef.current?.view
+    if (!view || tab !== 'html') return
+    let cancelled = false
+    findRangeForNode(DEMO_HTML, selectedId as StudioNodeId).then((range) => {
+      if (cancelled || !range) return
+      view.dispatch({
+        selection: { anchor: range.start, head: range.end },
+        scrollIntoView: true,
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId, tab])
 
   return (
     <section className="studio-code-panel">
@@ -134,18 +116,34 @@ export function CodePanel() {
         <div className="studio-code-tabs-fill" />
       </div>
 
-      <div className="studio-code-body">
-        <pre className="studio-code-gutter">
-          {Array.from({ length: source.lines }, (_, i) => i + 1).join('\n')}
-        </pre>
-        <pre className="studio-code-source">{source.node}</pre>
+      <div className="studio-code-body studio-code-editor">
+        {tab === 'html' && (
+          <CodeMirror
+            ref={htmlRef}
+            value={DEMO_HTML}
+            theme={darkTheme}
+            extensions={[html()]}
+            onUpdate={handleHtmlUpdate}
+            height="100%"
+          />
+        )}
+        {tab === 'css' && (
+          <CodeMirror
+            value={cssSource}
+            theme={darkTheme}
+            extensions={[css()]}
+            onUpdate={handleCssUpdate}
+            height="100%"
+          />
+        )}
+        {tab === 'js' && <CodeMirror value={JS_SOURCE} theme={darkTheme} extensions={[html()]} height="100%" editable={false} />}
       </div>
 
       <div className="studio-code-footer">
         <span>meridian.html</span>
         <span className="studio-code-footer-spacer" />
         <span className="studio-code-footer-dot">●</span>
-        <span>12 edits</span>
+        <span>click a tag to select it</span>
       </div>
     </section>
   )

@@ -1,7 +1,11 @@
-import { NODES, SELECTED_NODE_ID } from './data'
+import { NODES } from './data'
+import { useStudio } from './context'
 
 export function ElementTree() {
-  const selected = NODES.find((n) => n.id === SELECTED_NODE_ID)!
+  const { selectedId, selectNode, getNodeEl } = useStudio()
+  const selected = NODES.find((n) => n.id === selectedId)!
+  const el = getNodeEl(selectedId)
+  const box = el ? `${Math.round(el.offsetWidth)} × ${Math.round(el.offsetHeight)}` : '—'
 
   return (
     <>
@@ -16,8 +20,9 @@ export function ElementTree() {
             key={n.id}
             type="button"
             className="studio-tree-row"
-            data-selected={n.id === SELECTED_NODE_ID}
+            data-selected={n.id === selectedId}
             style={{ paddingLeft: 6 + (n.depth - 1) * 14 }}
+            onClick={() => selectNode(n.id)}
           >
             <span>{n.tag}</span>
             {n.cls && <span className="studio-tree-row-cls">{n.cls}</span>}
@@ -35,7 +40,7 @@ export function ElementTree() {
             {selected.tag}
             {selected.cls}
           </span>
-          <span className="studio-selection-box">{selected.box}</span>
+          <span className="studio-selection-box">{box}</span>
         </div>
         <div className="studio-selection-path">{selected.path}</div>
       </div>
