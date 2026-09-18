@@ -1,0 +1,9 @@
+# Go
+/backend/tmp/
+
+# Node
+/frontend/node_modules/
+
+# Build output (embedded into the Go binary at build time)
+/backend/dist/*
+!/backend/dist/index.html
