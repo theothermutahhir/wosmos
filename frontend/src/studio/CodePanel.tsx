@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import CodeMirror, { EditorView, type ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { html } from '@codemirror/lang-html'
 import { css } from '@codemirror/lang-css'
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { tags as t } from '@lezer/highlight'
 import { useStudio } from './context'
 import { NODES, type StudioNodeId } from './data'
 import { DEMO_HTML, findNodeInCss, findNodeInHtml, findRangeForNode } from './sourceSync'
@@ -37,14 +39,30 @@ function buildCss(styles: ReturnType<typeof useStudio>['styles']): string {
     .join('\n\n')
 }
 
+// Matches the syntax colors from the original Style Studio mockup, not
+// CodeMirror's defaults.
+const nocturneHighlight = HighlightStyle.define([
+  { tag: [t.tagName, t.className], color: '#b5abfc' },
+  { tag: [t.attributeName, t.propertyName, t.definition(t.propertyName)], color: '#9690c9' },
+  { tag: [t.string, t.attributeValue], color: '#9fd0c0' },
+  { tag: [t.comment, t.blockComment, t.lineComment], color: '#595d6c', fontStyle: 'italic' },
+  { tag: [t.number, t.unit, t.keyword, t.literal, t.bool, t.atom, t.color], color: '#d2cefd' },
+  { tag: [t.punctuation, t.bracket, t.angleBracket, t.operator], color: '#75798c' },
+  { tag: [t.variableName, t.definition(t.variableName)], color: '#e9e9ed' },
+])
+
 const darkTheme = EditorView.theme(
   {
     '&': { backgroundColor: 'var(--chrome-input-bg)', height: '100%', fontSize: '11.5px' },
-    '.cm-content': { fontFamily: 'var(--font-mono)', caretColor: 'var(--color-accent)' },
+    '.cm-content': { fontFamily: 'var(--font-mono)', caretColor: 'var(--color-accent)', color: '#cfd3e5' },
     '.cm-gutters': { backgroundColor: 'var(--chrome-gutter-bg)', color: 'var(--color-neutral-800)', border: 'none' },
     '.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--color-text) 5%, transparent)' },
     '.cm-activeLineGutter': { backgroundColor: 'transparent' },
     '&.cm-focused': { outline: 'none' },
+    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
+      backgroundColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent) !important',
+    },
+    '.cm-cursor': { borderLeftColor: 'var(--color-accent)' },
   },
   { dark: true },
 )
@@ -122,7 +140,7 @@ export function CodePanel() {
             ref={htmlRef}
             value={DEMO_HTML}
             theme={darkTheme}
-            extensions={[html()]}
+            extensions={[html(), syntaxHighlighting(nocturneHighlight)]}
             onUpdate={handleHtmlUpdate}
             height="100%"
           />
@@ -131,12 +149,20 @@ export function CodePanel() {
           <CodeMirror
             value={cssSource}
             theme={darkTheme}
-            extensions={[css()]}
+            extensions={[css(), syntaxHighlighting(nocturneHighlight)]}
             onUpdate={handleCssUpdate}
             height="100%"
           />
         )}
-        {tab === 'js' && <CodeMirror value={JS_SOURCE} theme={darkTheme} extensions={[html()]} height="100%" editable={false} />}
+        {tab === 'js' && (
+          <CodeMirror
+            value={JS_SOURCE}
+            theme={darkTheme}
+            extensions={[html(), syntaxHighlighting(nocturneHighlight)]}
+            height="100%"
+            editable={false}
+          />
+        )}
       </div>
 
       <div className="studio-code-footer">
